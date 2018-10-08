@@ -4,26 +4,26 @@ import numpy as np
 from numpy.linalg import inv
 from matplotlib import pyplot as plt
 
-def calc_mis_classification_err(test_y, predictions):
+def calc_mis_classification_err(y, predictions):
     mis_class_count = 0
     mis_class_instances = []
     correct_predictions = {0: 0, 1: 0, 2: 0}
 
     for i in range(len(predictions)):
-        if test_y[i] != predictions[i]:
-            mis_class_instances.append((test_y[i], predictions[i]))
+        if y[i] != predictions[i]:
+            mis_class_instances.append((y[i], predictions[i]))
             mis_class_count += 1
         else:
-            correct_predictions[test_y[i]] += 1
+            correct_predictions[y[i]] += 1
     
     return (mis_class_instances, mis_class_count, correct_predictions)
 
-def calc_predictions(W, test_X):
+def calc_predictions(W, X):
 
     predictions = []
 
-    for i in range(len(test_X)):
-        result = np.dot(np.transpose(W), np.transpose(test_X[i]).reshape(5,1))
+    for i in range(len(X)):
+        result = np.dot(np.transpose(W), np.transpose(X[i]).reshape(5,1))
         max_el = result[0]
         max_idx = 0
 
@@ -36,16 +36,16 @@ def calc_predictions(W, test_X):
     
     return predictions
 
-def calc_y_class_matrix(train_y):
+def calc_y_class_matrix(y):
 
-    y_class_matrix = np.zeros((len(train_y), 3))
+    y_class_matrix = np.zeros((len(y), 3))
 
-    for i in range(len(train_y)):
-        if train_y[i] == 0:
+    for i in range(len(y)):
+        if y[i] == 0:
             y_class_matrix[i] = [1,0,0]
-        elif train_y[i] == 1:
+        elif y[i] == 1:
             y_class_matrix[i] = [0,1,0]
-        elif train_y[i] == 2:
+        elif y[i] == 2:
             y_class_matrix[i] = [0,0,1]
         
     return y_class_matrix
@@ -90,8 +90,8 @@ X = np.c_[X, np.ones((150, 1))]
 # 3. Separate X and y into training and testing sets
 
 training_ratios = (.12, .30, .50)
-
-train_X, test_X, train_y, test_y = split_train_test(X, y, training_ratios[0])
+ratio = training_ratios[2] ### <---- Choose from the three options provided in training_ratios
+train_X, test_X, train_y, test_y = split_train_test(X, y, ratio) 
 
 # 4. Calculate W matrix
 
@@ -106,33 +106,48 @@ for i in range(len(train_X)):
     x_y_mat += np.dot(np.transpose(train_X[i]).reshape(5,1), y_class_matrix[i].reshape(1,3))
 
 W = np.matmul(inv(corr_mat + (cross_val * np.identity(5))), x_y_mat)
-print(W)
 
 # 5. Predict classes for test set
 
-predictions = calc_predictions(W, test_X)
+train_predictions = calc_predictions(W, train_X)
+test_predictions = calc_predictions(W, test_X)
 
-# 6. Calculate the mis-classification errors and the correct predictions per each class
+# 6. Calculate the training & testing mis-classification errors and the correct predictions per each class
 
-mis_class_instances, mis_class_count, correct_predictions = calc_mis_classification_err(test_y, predictions)
+train_mis_class_instances, train_mis_class_count, train_correct_predictions = calc_mis_classification_err(train_y, train_predictions)
+test_mis_class_instances, test_mis_class_count, test_correct_predictions = calc_mis_classification_err(test_y, test_predictions)
 
-correct_predictions_count = 0
-for key, item in correct_predictions.items():
-    correct_predictions_count += item
+train_correct_predictions_count = 0
+for key, item in train_correct_predictions.items():
+    train_correct_predictions_count += item
+
+test_correct_predictions_count = 0
+for key, item in test_correct_predictions.items():
+    test_correct_predictions_count += item
 
 # 7. Output training/testing info and accuracy score & Make the confusion matrix 
-
+print("------------------- CLASSIFIER INFO ----------------------------")
 print(f"Number of Training instances: {len(train_y)}")
+print(f"Number of Training mis-classification errors: {train_mis_class_count}" )
+print(f"Training Accuracy score: { (train_correct_predictions_count / len(train_predictions)) * 100 } %")
+print("----------------------------------------------------------------")
 print(f"Number of Testing instances: {len(test_y)}")
-print(f"Number of Testing mis-classification errors: {mis_class_count}" )
-print(f"Accuracy score: { (correct_predictions_count / len(predictions)) * 100 } %")
+print(f"Number of Testing mis-classification errors: {test_mis_class_count}" )
+print(f"Testing Accuracy score: { (test_correct_predictions_count / len(test_predictions)) * 100 } %")
 
-confusion_matrix = create_confusion_matrix(mis_class_instances, correct_predictions)
+train_confusion_matrix = create_confusion_matrix(train_mis_class_instances, train_correct_predictions)
+test_confusion_matrix = create_confusion_matrix(test_mis_class_instances, test_correct_predictions)
 
 # 8. Plot the confusion matrix
 row_labels = col_labels = ["setosa (0)", "versicolor (1)", "virginica (2)"]
-plt.table(cellText=confusion_matrix, loc='center', cellLoc='center', colLabels= col_labels, rowLabels = row_labels)
+plt.table(cellText=train_confusion_matrix, loc='center', cellLoc='center', colLabels= col_labels, rowLabels = row_labels)
 ax = plt.gca()
 ax.axis('off')
-plt.title('Confusion Matrix (50% Training / 50% Testing)')
+plt.title(f'Training Confusion Matrix ({ratio * 100}% Training / {100 - (ratio * 100)}% Testing)')
+plt.show()
+
+ax = plt.gca()
+ax.axis('off')
+plt.table(cellText=test_confusion_matrix, loc='center', cellLoc='center', colLabels= col_labels, rowLabels = row_labels)
+plt.title(f'Testing Confusion Matrix ({ratio * 100}% Training / {100 - (ratio * 100)}% Testing)')
 plt.show()
